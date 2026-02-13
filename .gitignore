@@ -1,0 +1,83 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+*.egg-info/
+dist/
+build/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build outputs
+dist/
+build/
+.vite/
+*.local
+
+# Data files (not needed for deployment)
+data.csv
+data_expanded-*.csv
+corrupted_data.csv
+output.csv
+test_*.csv
+*.csv
+
+# Progress and comparison files
+enrich_progress.json
+filings_progress.json
+model_comparison.json
+model_comparison.txt
+local_model_comparison.json
+
+# Raw filing data
+filings_raw/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Optional: Keep public/data.json if it's needed for the app to run
+# Uncomment the line below if you want to ignore it too
+# public/data.json

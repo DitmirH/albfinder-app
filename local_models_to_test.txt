@@ -1,0 +1,28 @@
+LOCAL OLLAMA MODELS TO TEST
+============================
+
+1. qwen3-coder-next:latest (51 GB)
+   - Newest Qwen model, likely best quality
+   - Expected: Highest accuracy, slower (10-20s)
+
+2. qwen2.5-coder:14b (9 GB)
+   - Good balance of speed and quality
+   - Expected: Good accuracy, faster (3-8s)
+
+3. gpt-oss:120b (65 GB)
+   - Very large model, may be overkill
+   - Expected: Very high quality, slowest (20-40s)
+
+4. mistral:latest (4.4 GB)
+   - Fast baseline model
+   - Expected: Decent quality, fastest (2-5s)
+
+RUN COMPARISON:
+===============
+python compare_local_models.py
+
+This will test all 4 models on the same REIBANQ LTD record and compare:
+- Data points extracted
+- Accuracy vs known correct data
+- Speed
+- Which model finds the most contact details
