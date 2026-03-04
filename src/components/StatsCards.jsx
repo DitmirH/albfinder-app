@@ -1,8 +1,16 @@
 import { useMemo } from 'react'
 import { Building2, Users, Search } from 'lucide-react'
 
-export default function StatsCards({ data }) {
+export default function StatsCards({ data, stats: statsFromApi }) {
   const stats = useMemo(() => {
+    if (statsFromApi) {
+      return [
+        { label: 'Total Records', value: (statsFromApi.totalCount ?? 0).toLocaleString(), icon: Users, bgColor: 'bg-indigo-50', textColor: 'text-indigo-600' },
+        { label: 'Unique Companies', value: (statsFromApi.uniqueCompanies ?? 0).toLocaleString(), icon: Building2, bgColor: 'bg-emerald-50', textColor: 'text-emerald-600' },
+        { label: 'Unique Directors', value: (statsFromApi.uniqueDirectors ?? 0).toLocaleString(), icon: Users, bgColor: 'bg-amber-50', textColor: 'text-amber-600' },
+        { label: 'Enriched', value: (statsFromApi.enrichedCount ?? 0).toLocaleString(), icon: Search, bgColor: 'bg-violet-50', textColor: 'text-violet-600' },
+      ]
+    }
     const uniqueCompanies = new Set(data.map(r => r.company_number)).size
     const uniqueDirectors = new Set(data.map(r => r.director_name)).size
     const enrichedCount = data.filter(r => r.data_enrichment_last).length
@@ -37,7 +45,7 @@ export default function StatsCards({ data }) {
         textColor: 'text-violet-600',
       },
     ]
-  }, [data])
+  }, [data, statsFromApi])
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
