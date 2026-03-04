@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Login from './components/Login'
 import Dashboard from './components/Dashboard'
 import DirectorDetailPage from './components/DirectorDetailPage'
+import { DataProvider } from './context/DataContext'
+import { isSupabaseConfigured } from './lib/supabase'
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -11,6 +13,8 @@ function App() {
   const [darkMode, setDarkMode] = useState(() => {
     return document.documentElement.classList.contains('dark')
   })
+
+  const useSupabase = isSupabaseConfigured()
 
   useEffect(() => {
     if (darkMode) {
@@ -31,7 +35,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !useSupabase) {
       fetch('/data.json')
         .then(res => res.json())
         .then(json => {
@@ -42,8 +46,10 @@ function App() {
           console.error('Failed to load data:', err)
           setLoading(false)
         })
+    } else if (isAuthenticated && useSupabase) {
+      setLoading(false)
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, useSupabase])
 
   // Load users from environment variables
   const getUsers = () => {
@@ -79,13 +85,17 @@ function App() {
     return <Login onLogin={handleLogin} />
   }
 
+  const routes = (
+    <Routes>
+      <Route path="/" element={<Dashboard data={data} loading={loading} useSupabase={useSupabase} onLogout={handleLogout} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
+      <Route path="/director/:id" element={<DirectorDetailPage data={data} useSupabase={useSupabase} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  )
+
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Dashboard data={data} loading={loading} onLogout={handleLogout} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
-        <Route path="/director/:id" element={<DirectorDetailPage data={data} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      {useSupabase ? <DataProvider>{routes}</DataProvider> : routes}
     </BrowserRouter>
   )
 }

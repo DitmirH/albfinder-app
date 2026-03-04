@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Search, LogOut, Dice5, Building2, Users, TrendingUp,
@@ -7,6 +7,16 @@ import {
   Star, ShieldCheck, Sun, Moon, BadgePoundSterling, Wallet, Landmark
 } from 'lucide-react'
 import StatsCards from './StatsCards'
+import { useDataOptional } from '../context/DataContext'
+
+function useDebounce(value, delay = 350) {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(t)
+  }, [value, delay])
+  return debounced
+}
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50]
 const DEFAULT_ENRICHMENT_DATE = '04-03-2026'
@@ -40,8 +50,9 @@ function fmtCurrency(val) {
   return val < 0 ? `-${formatted}` : formatted
 }
 
-export default function Dashboard({ data, loading, onLogout, darkMode, toggleDarkMode }) {
+export default function Dashboard({ data: staticData, loading: staticLoading, useSupabase, onLogout, darkMode, toggleDarkMode }) {
   const navigate = useNavigate()
+  const dataContext = useDataOptional()
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
@@ -53,38 +64,83 @@ export default function Dashboard({ data, loading, onLogout, darkMode, toggleDar
   const [showFilters, setShowFilters] = useState(false)
   const [view, setView] = useState('table') // 'table' or 'grid'
 
-  // Unique values for filters
+  // Reset page to 1 when search/filters change
+  useEffect(() => { setPage(1) }, [search, filterNationality, filterGrade, filterStatus])
+
+  const debouncedSearch = useDebounce(search, 400)
+  const data = useSupabase ? (dataContext?.records ?? []) : staticData
+  const isInitialLoad = useSupabase ? !dataContext?.initialLoadDone : staticLoading
+  const loading = useSupabase ? (dataContext?.loading ?? true) : staticLoading
+
+  // Load Supabase filters/stats once
+  useEffect(() => {
+    if (!useSupabase || !dataContext?.loadFilters) return
+    dataContext.loadFilters()
+    dataContext.loadStats()
+  }, [useSupabase, dataContext?.loadFilters, dataContext?.loadStats])
+
+  // Load Supabase page when params change (search is debounced)
+  useEffect(() => {
+    if (!useSupabase || !dataContext?.loadPage) return
+    dataContext.loadPage({
+      page,
+      pageSize,
+      search: debouncedSearch,
+      filterNationality,
+      filterGrade,
+      filterStatus,
+      sortField,
+      sortDir,
+    })
+  }, [useSupabase, dataContext?.loadPage, page, pageSize, debouncedSearch, filterNationality, filterGrade, filterStatus, sortField, sortDir])
+
+  // Unique values for filters (static: from data; Supabase: from context)
   const nationalities = useMemo(() => {
-    const set = new Set(data.map(r => r.nationality).filter(Boolean))
+    if (useSupabase && dataContext?.filterOptions?.nationalities?.length) return dataContext.filterOptions.nationalities
+    const set = new Set((staticData || []).map(r => r.nationality).filter(Boolean))
     return [...set].sort()
-  }, [data])
+  }, [useSupabase, dataContext?.filterOptions?.nationalities, staticData])
 
   const grades = useMemo(() => {
+    if (useSupabase && dataContext?.filterOptions?.grades?.length) return dataContext.filterOptions.grades
     const set = new Set(
-      data.map(r => String(r.financial_health_grade || '').trim().toUpperCase())
+      (staticData || []).map(r => String(r.financial_health_grade || '').trim().toUpperCase())
         .filter(g => VALID_GRADES.includes(g))
     )
     return [...set].sort()
-  }, [data])
+  }, [useSupabase, dataContext?.filterOptions?.grades, staticData])
 
   const statuses = useMemo(() => {
-    const set = new Set(data.map(r => r.company_status).filter(Boolean))
+    if (useSupabase && dataContext?.filterOptions?.statuses?.length) return dataContext.filterOptions.statuses
+    const set = new Set((staticData || []).map(r => r.company_status).filter(Boolean))
     return [...set].sort()
-  }, [data])
+  }, [useSupabase, dataContext?.filterOptions?.statuses, staticData])
 
-  // Find the most recent enrichment date across all records
+  // Find the most recent enrichment date (static) or from Supabase stats
   const lastEnriched = useMemo(() => {
-    const dates = data.map(r => r.data_enrichment_last).filter(Boolean)
+    if (useSupabase && dataContext?.stats?.lastEnriched) return dataContext.stats.lastEnriched
+    const dates = (staticData || []).map(r => r.data_enrichment_last).filter(Boolean)
     if (dates.length === 0) return null
     return dates.sort().reverse()[0]
-  }, [data])
+  }, [useSupabase, dataContext?.stats?.lastEnriched, staticData])
 
   const enrichedCount = useMemo(() => {
-    return data.filter(r => r.data_enrichment_last).length
-  }, [data])
+    if (useSupabase && dataContext?.stats?.enrichedCount != null) return dataContext.stats.enrichedCount
+    return (staticData || []).filter(r => r.data_enrichment_last).length
+  }, [useSupabase, dataContext?.stats?.enrichedCount, staticData])
 
-  // Overall financial totals (Albanian business aggregate)
+  // Overall financial totals (static only; Supabase mode skips this section)
   const financialTotals = useMemo(() => {
+    const emptyAgg = {
+      turnover: { total: 0, count: 0 },
+      grossProfit: { total: 0, count: 0 },
+      currentAssets: { total: 0, count: 0 },
+      workingCapital: { total: 0, count: 0 },
+      debtors: { total: 0, count: 0 },
+      employees: { total: 0, count: 0 },
+    }
+    if (useSupabase) return { agg: emptyAgg, gradeDist: { A: 0, B: 0, C: 0, D: 0, F: 0 }, totalGraded: 0 }
+    const d = staticData || []
     const agg = {
       turnover: { total: 0, count: 0 },
       grossProfit: { total: 0, count: 0 },
@@ -94,8 +150,7 @@ export default function Dashboard({ data, loading, onLogout, darkMode, toggleDar
       employees: { total: 0, count: 0 },
     }
     const gradeDist = { A: 0, B: 0, C: 0, D: 0, F: 0 }
-
-    data.forEach(r => {
+    d.forEach(r => {
       const map = [
         ['turnover', r.turnover],
         ['grossProfit', r.gross_profit],
@@ -109,18 +164,16 @@ export default function Dashboard({ data, loading, onLogout, darkMode, toggleDar
       })
       const emp = r.average_number_of_employees != null ? parseInt(r.average_number_of_employees) : NaN
       if (!isNaN(emp)) { agg.employees.total += emp; agg.employees.count++ }
-
       const g = String(r.financial_health_grade || '').trim().toUpperCase()
       if (gradeDist[g] !== undefined) gradeDist[g]++
     })
-
     return { agg, gradeDist, totalGraded: Object.values(gradeDist).reduce((a, b) => a + b, 0) }
-  }, [data])
+  }, [useSupabase, staticData])
 
-  // Filtered + searched data
+  // Filtered + searched data (static: client-side; Supabase: already the current page)
   const filtered = useMemo(() => {
-    let result = data
-
+    if (useSupabase) return data
+    let result = staticData || []
     if (search.trim()) {
       const q = search.toLowerCase().trim()
       result = result.filter(r =>
@@ -135,55 +188,29 @@ export default function Dashboard({ data, loading, onLogout, darkMode, toggleDar
         (r.google_kp?.category && r.google_kp.category.toLowerCase().includes(q))
       )
     }
-
-    if (filterNationality) {
-      result = result.filter(r => r.nationality === filterNationality)
-    }
-    if (filterGrade) {
-      result = result.filter(r => String(r.financial_health_grade || '').trim().toUpperCase() === filterGrade)
-    }
-    if (filterStatus) {
-      result = result.filter(r => r.company_status === filterStatus)
-    }
-
-    // Sorting
+    if (filterNationality) result = result.filter(r => r.nationality === filterNationality)
+    if (filterGrade) result = result.filter(r => String(r.financial_health_grade || '').trim().toUpperCase() === filterGrade)
+    if (filterStatus) result = result.filter(r => r.company_status === filterStatus)
     if (sortField) {
       const NUMERIC_SORT_FIELDS = ['financial_health_score', 'average_number_of_employees', 'dq_overall_score']
       const CURRENCY_SORT_FIELDS = ['current_assets', 'turnover', 'working_capital', 'debtors']
       result = [...result].sort((a, b) => {
-        let valA, valB
-
-        if (sortField === 'dq_overall_score') {
-          valA = parseFloat(a.data_quality?.overall_score) || 0
-          valB = parseFloat(b.data_quality?.overall_score) || 0
-        } else {
-          valA = a[sortField] || ''
-          valB = b[sortField] || ''
-        }
-
-        if (CURRENCY_SORT_FIELDS.includes(sortField)) {
-          valA = parseFinancial(valA) ?? 0
-          valB = parseFinancial(valB) ?? 0
-        } else if (NUMERIC_SORT_FIELDS.includes(sortField)) {
-          valA = parseFloat(valA) || 0
-          valB = parseFloat(valB) || 0
-        } else {
-          valA = valA.toString().toLowerCase()
-          valB = valB.toString().toLowerCase()
-        }
-
+        let valA = sortField === 'dq_overall_score' ? parseFloat(a.data_quality?.overall_score) || 0 : a[sortField] || ''
+        let valB = sortField === 'dq_overall_score' ? parseFloat(b.data_quality?.overall_score) || 0 : b[sortField] || ''
+        if (CURRENCY_SORT_FIELDS.includes(sortField)) { valA = parseFinancial(valA) ?? 0; valB = parseFinancial(valB) ?? 0 }
+        else if (NUMERIC_SORT_FIELDS.includes(sortField)) { valA = parseFloat(valA) || 0; valB = parseFloat(valB) || 0 }
+        else { valA = valA.toString().toLowerCase(); valB = valB.toString().toLowerCase() }
         if (valA < valB) return sortDir === 'asc' ? -1 : 1
         if (valA > valB) return sortDir === 'asc' ? 1 : -1
         return 0
       })
     }
-
     return result
-  }, [data, search, filterNationality, filterGrade, filterStatus, sortField, sortDir])
+  }, [useSupabase, data, staticData, search, filterNationality, filterGrade, filterStatus, sortField, sortDir])
 
-  // Pagination
-  const totalPages = Math.ceil(filtered.length / pageSize)
-  const paged = filtered.slice((page - 1) * pageSize, page * pageSize)
+  const totalCount = useSupabase ? (dataContext?.totalCount ?? 0) : (staticData?.length ?? 0)
+  const totalPages = useSupabase ? Math.ceil(totalCount / pageSize) : Math.ceil(filtered.length / pageSize)
+  const paged = useSupabase ? data : filtered.slice((page - 1) * pageSize, page * pageSize)
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -201,7 +228,16 @@ export default function Dashboard({ data, loading, onLogout, darkMode, toggleDar
       : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />
   }
 
-  const handleRandom = () => {
+  const handleRandom = async () => {
+    if (useSupabase && dataContext?.getRandomRecordId) {
+      try {
+        const id = await dataContext.getRandomRecordId()
+        if (id != null) navigate(`/director/${id}`)
+      } catch (e) {
+        console.error('Random record:', e)
+      }
+      return
+    }
     if (data.length === 0) return
     const randomRecord = data[Math.floor(Math.random() * data.length)]
     navigate(`/director/${randomRecord.id}`)
@@ -228,7 +264,7 @@ export default function Dashboard({ data, loading, onLogout, darkMode, toggleDar
     return colors[grade] || 'bg-slate-100 text-slate-600'
   }
 
-  if (loading) {
+  if (isInitialLoad) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
         <div className="text-center">
@@ -288,7 +324,7 @@ export default function Dashboard({ data, loading, onLogout, darkMode, toggleDar
 
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Stats */}
-        <StatsCards data={data} />
+        <StatsCards data={data} stats={useSupabase ? dataContext?.stats : undefined} />
 
         {/* Overall financial overview (Albanian business totals) */}
         {(financialTotals.agg.turnover.count > 0 || financialTotals.agg.currentAssets.count > 0 || financialTotals.totalGraded > 0) && (
@@ -463,13 +499,13 @@ export default function Dashboard({ data, loading, onLogout, darkMode, toggleDar
           <div className="px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between text-sm text-slate-500 rounded-b-xl">
             <div className="flex items-center gap-4">
               <span>
-                Showing <strong className="text-slate-700">{((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, filtered.length)}</strong> of <strong className="text-slate-700">{filtered.length}</strong> records
+                Showing <strong className="text-slate-700">{((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, useSupabase ? totalCount : filtered.length)}</strong> of <strong className="text-slate-700">{useSupabase ? totalCount : filtered.length}</strong> records
               </span>
               <span className="hidden md:inline-flex items-center gap-1.5 text-xs text-slate-400 border-l border-slate-200 dark:border-slate-600 pl-4">
                 <Clock className="w-3.5 h-3.5" />
                 Last updated: <strong className="text-slate-500 dark:text-slate-300">{formatEnrichmentDate(lastEnriched || '')}</strong>
                 <span className="text-slate-300">·</span>
-                {enrichedCount}/{data.length} updated
+                {enrichedCount}/{useSupabase ? totalCount : data.length} updated
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -488,7 +524,12 @@ export default function Dashboard({ data, loading, onLogout, darkMode, toggleDar
         {/* Data Display */}
         {view === 'table' ? (
           /* Table View */
-          <div className="mt-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+          <div className="mt-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden relative">
+            {loading && !isInitialLoad && (
+              <div className="absolute inset-0 bg-white/60 dark:bg-slate-800/60 z-10 flex items-center justify-center backdrop-blur-[1px]">
+                <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -652,7 +693,12 @@ export default function Dashboard({ data, loading, onLogout, darkMode, toggleDar
           </div>
         ) : (
           /* Grid View */
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 relative">
+            {loading && !isInitialLoad && (
+              <div className="absolute inset-0 bg-white/60 dark:bg-slate-800/60 z-10 flex items-center justify-center backdrop-blur-[1px] rounded-xl">
+                <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
             {paged.map((record) => (
               <div
                 key={record.id}

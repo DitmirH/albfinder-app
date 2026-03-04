@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useEffect, useState, useMemo, useRef } from 'react'
+import { useDataOptional } from '../context/DataContext'
 import {
   ArrowLeft, ExternalLink, Building2, Users, MapPin, Calendar,
   CreditCard, Hash, Briefcase, Globe, FileText, Mail, Phone,
@@ -216,21 +217,30 @@ function fmtCurrency(val) {
   return String(val)
 }
 
-export default function DirectorDetailPage({ data, darkMode, toggleDarkMode }) {
+export default function DirectorDetailPage({ data: staticData, useSupabase, darkMode, toggleDarkMode }) {
   const { id } = useParams()
   const navigate = useNavigate()
   const [record, setRecord] = useState(null)
+  const [loadingRecord, setLoadingRecord] = useState(!!useSupabase)
+  const dataContext = useDataOptional()
 
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [id])
 
   useEffect(() => {
-    if (data && data.length > 0) {
-      const found = data.find(r => String(r.id) === String(id))
+    if (useSupabase && dataContext?.getRecordById) {
+      setLoadingRecord(true)
+      dataContext.getRecordById(id)
+        .then(r => { setRecord(r); setLoadingRecord(false) })
+        .catch(() => { setRecord(null); setLoadingRecord(false) })
+      return
+    }
+    if (staticData?.length) {
+      const found = staticData.find(r => String(r.id) === String(id))
       setRecord(found || null)
     }
-  }, [id, data])
+  }, [id, useSupabase, dataContext, staticData])
 
   // Parse enriched AI data (contact details from enrich.py)
   const enrichedData = useMemo(() => {
@@ -280,9 +290,22 @@ export default function DirectorDetailPage({ data, darkMode, toggleDarkMode }) {
   const googleKp = record?.google_kp || null
   const dataQuality = record?.data_quality || null
 
-  if (!data || data.length === 0) {
+  if (useSupabase && loadingRecord) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 shadow-lg mb-4 animate-pulse">
+            <span className="text-2xl font-extrabold text-slate-900">AF</span>
+          </div>
+          <p className="text-slate-500 animate-pulse">Loading record...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!useSupabase && (!staticData || staticData.length === 0)) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 shadow-lg mb-4 animate-pulse">
             <span className="text-2xl font-extrabold text-slate-900">AF</span>
