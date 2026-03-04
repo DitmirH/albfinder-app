@@ -78,6 +78,6 @@ Desktop.ini
 *.temp
 .cache/
 
-# Optional: Keep public/data.json if it's needed for the app to run
-# Uncomment the line below if you want to ignore it too
-# public/data.json
+# Generated app data (regenerate with: python convert.py)
+# Exceeds GitHub 100 MB limit; keep out of repo
+public/data.json

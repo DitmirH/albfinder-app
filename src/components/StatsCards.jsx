@@ -1,49 +1,40 @@
 import { useMemo } from 'react'
-import { Building2, Users, TrendingUp, Shield } from 'lucide-react'
+import { Building2, Users, Search } from 'lucide-react'
 
 export default function StatsCards({ data }) {
   const stats = useMemo(() => {
     const uniqueCompanies = new Set(data.map(r => r.company_number)).size
     const uniqueDirectors = new Set(data.map(r => r.director_name)).size
-    const withFinancials = data.filter(r => r.financial_health_grade).length
-    const avgScore = data.reduce((sum, r) => {
-      const score = parseInt(r.financial_health_score)
-      return !isNaN(score) ? sum + score : sum
-    }, 0) / (withFinancials || 1)
+    const enrichedCount = data.filter(r => r.data_enrichment_last).length
 
     return [
       {
         label: 'Total Records',
-        value: data.length,
+        value: data.length.toLocaleString(),
         icon: Users,
-        color: 'from-indigo-500 to-indigo-600',
         bgColor: 'bg-indigo-50',
         textColor: 'text-indigo-600',
       },
       {
         label: 'Unique Companies',
-        value: uniqueCompanies,
+        value: uniqueCompanies.toLocaleString(),
         icon: Building2,
-        color: 'from-emerald-500 to-emerald-600',
         bgColor: 'bg-emerald-50',
         textColor: 'text-emerald-600',
       },
       {
         label: 'Unique Directors',
-        value: uniqueDirectors,
+        value: uniqueDirectors.toLocaleString(),
         icon: Users,
-        color: 'from-amber-500 to-amber-600',
         bgColor: 'bg-amber-50',
         textColor: 'text-amber-600',
       },
       {
-        label: 'Avg Health Score',
-        value: Math.round(avgScore),
-        icon: TrendingUp,
-        color: 'from-rose-500 to-rose-600',
-        bgColor: 'bg-rose-50',
-        textColor: 'text-rose-600',
-        suffix: '/100',
+        label: 'Enriched',
+        value: enrichedCount.toLocaleString(),
+        icon: Search,
+        bgColor: 'bg-violet-50',
+        textColor: 'text-violet-600',
       },
     ]
   }, [data])
@@ -53,7 +44,7 @@ export default function StatsCards({ data }) {
       {stats.map((stat, i) => (
         <div
           key={stat.label}
-          className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm animate-fade-in"
+          className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm animate-fade-in"
           style={{ animationDelay: `${i * 50}ms` }}
         >
           <div className="flex items-center justify-between mb-3">

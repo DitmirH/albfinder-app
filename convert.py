@@ -8,6 +8,9 @@ and writes public/data.json.
 import csv
 import json
 import os
+import sys
+
+csv.field_size_limit(sys.maxsize)
 
 # ── Mapping from CSV header names to clean frontend field names ───────
 # Any CSV column whose header (stripped) matches a key here will be
@@ -57,6 +60,9 @@ HEADER_TO_FIELD = {
     "Overall Financial Health Score (0-100)":                            "financial_health_score",
     "EBITDA (Earnings Before Interest, Tax, Depreciation, Amortization)": "ebitda",
     "Fixed Assets (Property, Plant & Equipment)":                       "fixed_assets",
+    # New enrichment metadata
+    "website_verified":  "website_verified",
+    "confidence_score":  "confidence_score",
 }
 
 # Enriched columns (expanded format from enrich.py) – built into ai_input JSON
@@ -81,6 +87,38 @@ FILING_COLUMNS = [
     "ai_summary",
     "financial_history",
     "data_enrichment_last",
+]
+
+# Google Knowledge Panel columns – built into nested google_kp object
+# Only included when google_kp_match >= 0.5
+GOOGLE_KP_COLUMNS = [
+    "google_kp_name",
+    "google_kp_category",
+    "google_kp_rating",
+    "google_kp_reviews",
+    "google_kp_address",
+    "google_kp_phone",
+    "google_kp_website",
+    "google_kp_hours",
+    "google_kp_description",
+    "google_kp_social_instagram",
+    "google_kp_social_linkedin",
+    "google_kp_social_facebook",
+    "google_kp_social_twitter",
+    "google_kp_summary",
+    "google_kp_match",
+    "google_kp_enriched",
+]
+
+# Data quality columns – built into nested data_quality object
+# Deliberately excludes: dq_phones_removed, dq_emails_removed,
+#                        dq_website_non_uk, dq_kp_website_non_uk
+DQ_COLUMNS = [
+    "dq_kp_name_similarity",
+    "dq_kp_name_match",
+    "dq_kp_is_accountant",
+    "dq_overall_score",
+    "dq_score_breakdown",
 ]
 
 
@@ -155,6 +193,24 @@ with open('data.csv', 'r', encoding='utf-8') as f:
     # Clean header
     raw_header = [h.strip().strip('"') for h in raw_header]
 
+    # Detect shifted columns caused by duplicate EBITDA/FixedAssets headers
+    # whose names contain commas and were split into multiple CSV columns.
+    # The REAL Avg Employees, Grade, Score sit at the split-artifact positions.
+    emp_override_idx = None
+    grade_override_idx = None
+    score_override_idx = None
+    for ci, col_name in enumerate(raw_header):
+        cn = col_name.strip()
+        if cn == "Tax" and ci > 40:
+            emp_override_idx = ci
+        elif cn == "Depreciation" and ci > 40:
+            grade_override_idx = ci
+        elif cn.startswith("Amortization") and ci > 40:
+            score_override_idx = ci
+
+    if emp_override_idx:
+        print(f"  [column-fix] Real Employees at col {emp_override_idx}, Grade at {grade_override_idx}, Score at {score_override_idx}")
+
     for idx, row in enumerate(reader, 1):
         record = {"id": idx}
 
@@ -169,6 +225,17 @@ with open('data.csv', 'r', encoding='utf-8') as f:
         for csv_header, field_name in HEADER_TO_FIELD.items():
             if csv_header in row_dict:
                 record[field_name] = clean_value(row_dict[csv_header])
+
+        # ── Override shifted Employees / Grade / Score ────────────
+        if emp_override_idx is not None and emp_override_idx < len(row):
+            val = row[emp_override_idx].strip()
+            record["average_number_of_employees"] = val if val not in ('-', '') else None
+        if grade_override_idx is not None and grade_override_idx < len(row):
+            val = row[grade_override_idx].strip()
+            record["financial_health_grade"] = val if val not in ('-', '') else None
+        if score_override_idx is not None and score_override_idx < len(row):
+            val = row[score_override_idx].strip()
+            record["financial_health_score"] = val if val not in ('-', '') else None
 
         # ── Try to get enrichment from expanded CSV columns ──
         ai_input = None
@@ -202,6 +269,33 @@ with open('data.csv', 'r', encoding='utf-8') as f:
             if raw:
                 record[col] = raw
 
+        # ── Google Knowledge Panel (only if match score >= 0.5) ───
+        kp_match_str = row_dict.get("google_kp_match")
+        if kp_match_str:
+            try:
+                kp_match_val = float(kp_match_str)
+            except (ValueError, TypeError):
+                kp_match_val = 0
+            if kp_match_val >= 0.5:
+                google_kp = {}
+                for col in GOOGLE_KP_COLUMNS:
+                    val = clean_value(row_dict.get(col))
+                    if val:
+                        key = col.replace("google_kp_", "")
+                        google_kp[key] = val
+                if google_kp:
+                    record["google_kp"] = google_kp
+
+        # ── Data Quality scores ───────────────────────────────────
+        dq = {}
+        for col in DQ_COLUMNS:
+            val = clean_value(row_dict.get(col))
+            if val:
+                key = col.replace("dq_", "")
+                dq[key] = val
+        if dq:
+            record["data_quality"] = dq
+
         records.append(record)
 
 # ── Write JSON ─────────────────────────────────────────────────────────
@@ -211,6 +305,16 @@ with open('public/data.json', 'w', encoding='utf-8') as f:
 
 enriched_count = sum(1 for r in records if 'ai_input' in r)
 filing_count = sum(1 for r in records if 'ai_summary' in r)
+kp_count = sum(1 for r in records if 'google_kp' in r)
+dq_count = sum(1 for r in records if 'data_quality' in r)
+grade_count = sum(1 for r in records if r.get('financial_health_grade'))
+score_count = sum(1 for r in records if r.get('financial_health_score'))
+emp_count = sum(1 for r in records if r.get('average_number_of_employees'))
+turnover_count = sum(1 for r in records if r.get('turnover'))
 print(f"Converted {len(records)} records to public/data.json")
 print(f"  - {enriched_count} with contact details")
 print(f"  - {filing_count} with filing analysis")
+print(f"  - {kp_count} with Google Knowledge Panel (match >= 0.5)")
+print(f"  - {dq_count} with data quality scores")
+print(f"  - {grade_count} with health grade, {score_count} with health score")
+print(f"  - {emp_count} with employee count, {turnover_count} with turnover")

@@ -8,6 +8,20 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
+  const [darkMode, setDarkMode] = useState(() => {
+    return document.documentElement.classList.contains('dark')
+  })
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+    localStorage.setItem('albfinder_dark', darkMode)
+  }, [darkMode])
+
+  const toggleDarkMode = () => setDarkMode(prev => !prev)
 
   useEffect(() => {
     const session = sessionStorage.getItem('albfinder_auth')
@@ -68,8 +82,8 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Dashboard data={data} loading={loading} onLogout={handleLogout} />} />
-        <Route path="/director/:id" element={<DirectorDetailPage data={data} />} />
+        <Route path="/" element={<Dashboard data={data} loading={loading} onLogout={handleLogout} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
+        <Route path="/director/:id" element={<DirectorDetailPage data={data} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
