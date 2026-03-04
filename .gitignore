@@ -78,6 +78,5 @@ Desktop.ini
 *.temp
 .cache/
 
-# Generated app data (regenerate with: python convert.py)
-# Exceeds GitHub 100 MB limit; keep out of repo
-public/data.json
+# Generated app data is tracked with Git LFS (public/data.json)
+# To regenerate: python convert.py
