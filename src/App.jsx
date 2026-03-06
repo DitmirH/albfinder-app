@@ -1,10 +1,22 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Login from './components/Login'
-import Dashboard from './components/Dashboard'
-import DirectorDetailPage from './components/DirectorDetailPage'
 import { DataProvider } from './context/DataContext'
 import { isSupabaseConfigured } from './lib/supabase'
+
+const Dashboard = lazy(() => import('./components/Dashboard'))
+const DirectorDetailPage = lazy(() => import('./components/DirectorDetailPage'))
+
+function PageLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 via-white to-red-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-12 h-12 border-4 border-red-200 border-t-red-600 rounded-full animate-spin" />
+        <span className="text-gray-600 dark:text-gray-300 text-sm">Loading...</span>
+      </div>
+    </div>
+  )
+}
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -86,11 +98,13 @@ function App() {
   }
 
   const routes = (
-    <Routes>
-      <Route path="/" element={<Dashboard data={data} loading={loading} useSupabase={useSupabase} onLogout={handleLogout} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
-      <Route path="/director/:id" element={<DirectorDetailPage data={data} useSupabase={useSupabase} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        <Route path="/" element={<Dashboard data={data} loading={loading} useSupabase={useSupabase} onLogout={handleLogout} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
+        <Route path="/director/:id" element={<DirectorDetailPage data={data} useSupabase={useSupabase} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Suspense>
   )
 
   return (

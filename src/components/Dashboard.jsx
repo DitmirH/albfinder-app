@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Search, LogOut, Dice5, Building2, Users, TrendingUp,
@@ -55,7 +55,10 @@ export default function Dashboard({ data: staticData, loading: staticLoading, us
   const dataContext = useDataOptional()
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  const [pageSize, setPageSize] = useState(() => {
+    const saved = Number(sessionStorage.getItem('albfinder_page_size'))
+    return PAGE_SIZE_OPTIONS.includes(saved) ? saved : 10
+  })
   const [sortField, setSortField] = useState(null)
   const [sortDir, setSortDir] = useState('asc')
   const [filterNationality, setFilterNationality] = useState('')
@@ -72,17 +75,23 @@ export default function Dashboard({ data: staticData, loading: staticLoading, us
   const isInitialLoad = useSupabase ? !dataContext?.initialLoadDone : staticLoading
   const loading = useSupabase ? (dataContext?.loading ?? true) : staticLoading
 
-  // Load Supabase filters/stats once
+  // Persist selected page size across route navigation.
   useEffect(() => {
-    if (!useSupabase || !dataContext?.loadFilters) return
-    dataContext.loadFilters()
-    dataContext.loadStats()
-  }, [useSupabase, dataContext?.loadFilters, dataContext?.loadStats])
+    sessionStorage.setItem('albfinder_page_size', String(pageSize))
+  }, [pageSize])
 
-  // Load Supabase page when params change (search is debounced)
+  // Load Supabase filters/stats when needed
+  useEffect(() => {
+    if (!useSupabase || !dataContext?.loadFilters || !dataContext?.loadStats) return
+    if (!dataContext.filtersLoaded) dataContext.loadFilters()
+    if (!dataContext.statsLoaded) dataContext.loadStats()
+  }, [useSupabase, dataContext?.loadFilters, dataContext?.loadStats, dataContext?.filtersLoaded, dataContext?.statsLoaded])
+
+  // Load Supabase page when query params change
+  const lastPageRequestRef = useRef('')
   useEffect(() => {
     if (!useSupabase || !dataContext?.loadPage) return
-    dataContext.loadPage({
+    const request = {
       page,
       pageSize,
       search: debouncedSearch,
@@ -91,7 +100,11 @@ export default function Dashboard({ data: staticData, loading: staticLoading, us
       filterStatus,
       sortField,
       sortDir,
-    })
+    }
+    const requestKey = JSON.stringify(request)
+    if (requestKey === lastPageRequestRef.current) return
+    lastPageRequestRef.current = requestKey
+    dataContext.loadPage(request)
   }, [useSupabase, dataContext?.loadPage, page, pageSize, debouncedSearch, filterNationality, filterGrade, filterStatus, sortField, sortDir])
 
   // Unique values for filters (static: from data; Supabase: from context)
@@ -266,13 +279,39 @@ export default function Dashboard({ data: staticData, loading: staticLoading, us
 
   if (isInitialLoad) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
-        <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 shadow-lg mb-4 animate-pulse">
-            <span className="text-2xl font-extrabold text-slate-900">AF</span>
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+        <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30">
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
+                  <span className="text-lg font-extrabold text-slate-900">AF</span>
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-slate-900 dark:text-white">AlbFinder</h1>
+                  <p className="text-xs text-slate-500">UK Company Directors</p>
+                </div>
+              </div>
+              <div className="w-32 h-8 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+            </div>
           </div>
-          <p className="text-slate-500 animate-pulse">Loading data...</p>
-        </div>
+        </header>
+        <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            {[1,2,3].map(i => (
+              <div key={i} className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-24 mb-3 animate-pulse" />
+                <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded w-16 animate-pulse" />
+              </div>
+            ))}
+          </div>
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+            <div className="flex items-center justify-center gap-3 py-12">
+              <div className="w-8 h-8 border-3 border-amber-400 border-t-transparent rounded-full animate-spin" />
+              <span className="text-slate-500 dark:text-slate-400">Loading data...</span>
+            </div>
+          </div>
+        </main>
       </div>
     )
   }
@@ -544,23 +583,8 @@ export default function Dashboard({ data: staticData, loading: staticLoading, us
                         Company <SortIcon field="company_name" />
                       </button>
                     </th>
-                    <th className="text-left px-4 py-3 font-semibold text-slate-600 hidden lg:table-cell">
-                      <button onClick={() => handleSort('nationality')} className="inline-flex items-center gap-1 hover:text-slate-900">
-                        Nationality <SortIcon field="nationality" />
-                      </button>
-                    </th>
                     <th className="text-left px-4 py-3 font-semibold text-slate-600 hidden md:table-cell">Status</th>
                     <th className="text-left px-4 py-3 font-semibold text-slate-600 hidden xl:table-cell">Postcode</th>
-                    <th className="text-center px-4 py-3 font-semibold text-slate-600 hidden lg:table-cell" title="Financial health grade A (best) to F (worst)">
-                      <button onClick={() => handleSort('financial_health_grade')} className="inline-flex items-center gap-1 hover:text-slate-900">
-                        Grade (A–F) <SortIcon field="financial_health_grade" />
-                      </button>
-                    </th>
-                    <th className="text-center px-4 py-3 font-semibold text-slate-600 hidden xl:table-cell" title="Financial health score 0–100">
-                      <button onClick={() => handleSort('financial_health_score')} className="inline-flex items-center gap-1 hover:text-slate-900">
-                        Score (0–100) <SortIcon field="financial_health_score" />
-                      </button>
-                    </th>
                     <th className="text-right px-4 py-3 font-semibold text-slate-600 hidden xl:table-cell" title="Current Assets (Liquidity)">
                       <button onClick={() => handleSort('current_assets')} className="inline-flex items-center gap-1 hover:text-slate-900">
                         Current Assets <SortIcon field="current_assets" />
@@ -589,7 +613,6 @@ export default function Dashboard({ data: staticData, loading: staticLoading, us
                     >
                       <td className="px-4 py-3">
                         <div className="font-medium text-slate-900">{record.director_name}</div>
-                        <div className="text-xs text-slate-500 lg:hidden">{record.nationality}</div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="text-slate-700 max-w-xs truncate flex items-center gap-1.5">
@@ -602,9 +625,6 @@ export default function Dashboard({ data: staticData, loading: staticLoading, us
                         </div>
                         <div className="text-xs text-slate-400">{record.company_type?.toUpperCase()} · #{record.company_number}</div>
                       </td>
-                      <td className="px-4 py-3 hidden lg:table-cell">
-                        <span className="text-slate-600">{record.nationality}</span>
-                      </td>
                       <td className="px-4 py-3 hidden md:table-cell">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
                           record.company_status === 'active'
@@ -615,23 +635,6 @@ export default function Dashboard({ data: staticData, loading: staticLoading, us
                         </span>
                       </td>
                       <td className="px-4 py-3 hidden xl:table-cell text-slate-600">{record.registered_postcode}</td>
-                      <td className="px-4 py-3 hidden lg:table-cell text-center">
-                        {record.financial_health_grade && VALID_GRADES.includes(String(record.financial_health_grade).trim().toUpperCase()) ? (
-                          <span className={`inline-flex w-8 h-8 items-center justify-center rounded-lg text-xs font-bold ${gradeColor(String(record.financial_health_grade).trim().toUpperCase())}`}>
-                            {String(record.financial_health_grade).trim().toUpperCase()}
-                          </span>
-                        ) : (
-                          <span className="text-slate-300">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 hidden xl:table-cell text-center">
-                        {(() => {
-                          const raw = record.financial_health_score
-                          const num = raw != null ? parseFloat(String(raw).replace(/[£,\s]/g, '')) : NaN
-                          if (isNaN(num) || num < 0 || num > 100) return <span className="text-slate-300">—</span>
-                          return <span className="font-semibold text-slate-700 dark:text-slate-200">{Math.round(num)}</span>
-                        })()}
-                      </td>
                       <td className="px-4 py-3 hidden xl:table-cell text-right">
                         {record.current_assets ? (
                           <span className="text-slate-700 dark:text-slate-200 font-medium text-xs">{record.current_assets}</span>

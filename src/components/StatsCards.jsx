@@ -1,7 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, memo } from 'react'
 import { Building2, Users, Search } from 'lucide-react'
 
-export default function StatsCards({ data, stats: statsFromApi }) {
+export default memo(function StatsCards({ data, stats: statsFromApi }) {
   const stats = useMemo(() => {
     if (statsFromApi) {
       return [
@@ -69,5 +69,5 @@ export default function StatsCards({ data, stats: statsFromApi }) {
       ))}
     </div>
   )
-}
+})
 

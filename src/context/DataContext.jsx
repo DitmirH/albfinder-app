@@ -83,6 +83,8 @@ export function DataProvider({ children }) {
       setRecords([])
       setTotalCount(0)
     } finally {
+      // Avoid permanent first-load spinner when the first request fails.
+      setInitialLoadDone(true)
       setLoading(false)
     }
   }, [])
