@@ -1,0 +1,41 @@
+# OWASP ZAP Rules Configuration for AlbFinder
+# Format: ruleId	action	parameter
+# Actions: IGNORE, WARN, FAIL
+# 
+# Rule IDs reference: https://www.zaproxy.org/docs/alerts/
+
+# Informational alerts - set to WARN (don't fail the build)
+10020	WARN	# Anti-clickjacking Header (X-Frame-Options) - handled by hosting
+10021	WARN	# X-Content-Type-Options Header Missing - handled by hosting
+10036	WARN	# Server Leaks Version Info - handled by hosting
+10037	WARN	# Server Leaks Info via X-Powered-By - handled by hosting
+10038	WARN	# Content Security Policy (CSP) Header Not Set
+10063	WARN	# Permissions Policy Header Not Set
+10098	WARN	# Cross-Domain Misconfiguration - handled by hosting
+
+# SPA-specific rules that may produce false positives
+10017	WARN	# Cross-Domain JavaScript Source File Inclusion (CDN resources)
+10109	WARN	# Modern Web Application (informational)
+10110	WARN	# Dangerous JS Functions - may flag React internals
+
+# Cookie-related (app may not use cookies)
+10010	WARN	# Cookie No HttpOnly Flag
+10011	WARN	# Cookie Without Secure Flag
+10054	WARN	# Cookie without SameSite Attribute
+
+# Security headers that should be configured at hosting level
+10015	WARN	# Incomplete or No Cache-control and Pragma HTTP Header Set
+90033	WARN	# Loosely Scoped Cookie
+
+# These should fail the build - critical security issues
+40012	FAIL	# Cross Site Scripting (Reflected)
+40014	FAIL	# Cross Site Scripting (Persistent)
+40016	FAIL	# Cross Site Scripting (DOM Based)
+40018	FAIL	# SQL Injection
+90019	FAIL	# Server Side Code Injection
+90020	FAIL	# Remote OS Command Injection
+90021	FAIL	# XPath Injection
+90023	FAIL	# XML External Entity Attack
+40003	FAIL	# CRLF Injection
+40008	FAIL	# Parameter Tampering
+40009	FAIL	# Server Side Include

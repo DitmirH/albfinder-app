@@ -14,13 +14,13 @@ describe('StatsCards', () => {
       render(<StatsCards data={data} />)
 
       expect(screen.getByText('Total Records')).toBeInTheDocument()
-      expect(screen.getByText('Unique Companies')).toBeInTheDocument()
-      expect(screen.getByText('Unique Directors')).toBeInTheDocument()
+      expect(screen.getByText('Companies')).toBeInTheDocument()
+      expect(screen.getByText('Directors')).toBeInTheDocument()
       expect(screen.getByText('Enriched')).toBeInTheDocument()
 
       expect(screen.getByText('Total Records').previousElementSibling).toHaveTextContent('3')
-      expect(screen.getByText('Unique Companies').previousElementSibling).toHaveTextContent('2')
-      expect(screen.getByText('Unique Directors').previousElementSibling).toHaveTextContent('2')
+      expect(screen.getByText('Companies').previousElementSibling).toHaveTextContent('2')
+      expect(screen.getByText('Directors').previousElementSibling).toHaveTextContent('2')
       expect(screen.getByText('Enriched').previousElementSibling).toHaveTextContent('2')
     })
 
@@ -28,8 +28,8 @@ describe('StatsCards', () => {
       render(<StatsCards data={[]} />)
 
       expect(screen.getByText('Total Records').previousElementSibling).toHaveTextContent('0')
-      expect(screen.getByText('Unique Companies').previousElementSibling).toHaveTextContent('0')
-      expect(screen.getByText('Unique Directors').previousElementSibling).toHaveTextContent('0')
+      expect(screen.getByText('Companies').previousElementSibling).toHaveTextContent('0')
+      expect(screen.getByText('Directors').previousElementSibling).toHaveTextContent('0')
       expect(screen.getByText('Enriched').previousElementSibling).toHaveTextContent('0')
     })
 
@@ -44,7 +44,7 @@ describe('StatsCards', () => {
       render(<StatsCards data={data} />)
 
       expect(screen.getByText('Total Records').previousElementSibling).toHaveTextContent('4')
-      expect(screen.getByText('Unique Companies').previousElementSibling).toHaveTextContent('2')
+      expect(screen.getByText('Companies').previousElementSibling).toHaveTextContent('2')
     })
 
     it('counts unique directors correctly', () => {
@@ -56,7 +56,7 @@ describe('StatsCards', () => {
 
       render(<StatsCards data={data} />)
 
-      expect(screen.getByText('Unique Directors').previousElementSibling).toHaveTextContent('2')
+      expect(screen.getByText('Directors').previousElementSibling).toHaveTextContent('2')
     })
 
     it('counts enriched records correctly', () => {
@@ -145,8 +145,8 @@ describe('StatsCards', () => {
       render(<StatsCards data={[]} />)
 
       expect(screen.getByText('Total Records')).toBeInTheDocument()
-      expect(screen.getByText('Unique Companies')).toBeInTheDocument()
-      expect(screen.getByText('Unique Directors')).toBeInTheDocument()
+      expect(screen.getByText('Companies')).toBeInTheDocument()
+      expect(screen.getByText('Directors')).toBeInTheDocument()
       expect(screen.getByText('Enriched')).toBeInTheDocument()
     })
   })
