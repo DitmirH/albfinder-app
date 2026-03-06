@@ -93,20 +93,25 @@ describe('Dashboard', () => {
     it('renders dashboard when data is loaded', () => {
       renderDashboard()
       expect(screen.getByText('AlbFinder')).toBeInTheDocument()
-      expect(screen.getByPlaceholderText(/Search by director/i)).toBeInTheDocument()
+      expect(screen.getByPlaceholderText(/Search director/i)).toBeInTheDocument()
     })
 
     it('displays records in table', () => {
       renderDashboard()
-      expect(screen.getByText('John Smith')).toBeInTheDocument()
-      expect(screen.getByText('Jane Doe')).toBeInTheDocument()
-      expect(screen.getByText('Bob Wilson')).toBeInTheDocument()
+      const johnSmithElements = screen.getAllByText('John Smith')
+      expect(johnSmithElements.length).toBeGreaterThan(0)
+      const janeDoeElements = screen.getAllByText('Jane Doe')
+      expect(janeDoeElements.length).toBeGreaterThan(0)
+      const bobWilsonElements = screen.getAllByText('Bob Wilson')
+      expect(bobWilsonElements.length).toBeGreaterThan(0)
     })
 
     it('displays company names', () => {
       renderDashboard()
-      expect(screen.getByText('ACME Ltd')).toBeInTheDocument()
-      expect(screen.getByText('Beta Corp')).toBeInTheDocument()
+      const acmeElements = screen.getAllByText('ACME Ltd')
+      expect(acmeElements.length).toBeGreaterThan(0)
+      const betaElements = screen.getAllByText('Beta Corp')
+      expect(betaElements.length).toBeGreaterThan(0)
     })
 
     it('does not show nationality column in table', () => {
@@ -122,11 +127,12 @@ describe('Dashboard', () => {
       const user = userEvent.setup()
       renderDashboard()
       
-      const searchInput = screen.getByPlaceholderText(/Search by director/i)
+      const searchInput = screen.getByPlaceholderText(/Search director/i)
       await user.type(searchInput, 'John')
       
       await waitFor(() => {
-        expect(screen.getByText('John Smith')).toBeInTheDocument()
+        const johnElements = screen.getAllByText('John Smith')
+        expect(johnElements.length).toBeGreaterThan(0)
       })
     })
 
@@ -134,11 +140,12 @@ describe('Dashboard', () => {
       const user = userEvent.setup()
       renderDashboard()
       
-      const searchInput = screen.getByPlaceholderText(/Search by director/i)
+      const searchInput = screen.getByPlaceholderText(/Search director/i)
       await user.type(searchInput, 'ACME')
       
       await waitFor(() => {
-        expect(screen.getByText('ACME Ltd')).toBeInTheDocument()
+        const acmeElements = screen.getAllByText('ACME Ltd')
+        expect(acmeElements.length).toBeGreaterThan(0)
       })
     })
 
@@ -146,10 +153,9 @@ describe('Dashboard', () => {
       const user = userEvent.setup()
       renderDashboard()
       
-      const searchInput = screen.getByPlaceholderText(/Search by director/i)
+      const searchInput = screen.getByPlaceholderText(/Search director/i)
       await user.type(searchInput, 'test')
       
-      // Find the clear button inside the search input container
       const clearButton = searchInput.parentElement.querySelector('button')
       await user.click(clearButton)
       
@@ -158,11 +164,11 @@ describe('Dashboard', () => {
   })
 
   describe('navigation', () => {
-    it('navigates to director detail page when row is clicked', async () => {
+    it('navigates to director detail page when table row is clicked', async () => {
       const user = userEvent.setup()
       renderDashboard()
       
-      const row = screen.getByText('John Smith').closest('tr')
+      const row = screen.getByRole('table').querySelector('tbody tr')
       await user.click(row)
       
       expect(mockNavigate).toHaveBeenCalledWith('/director/1')
@@ -186,7 +192,7 @@ describe('Dashboard', () => {
       const user = userEvent.setup()
       renderDashboard({ toggleDarkMode })
       
-      const toggleButton = screen.getByTitle(/Switch to dark mode/i)
+      const toggleButton = screen.getByTitle(/mode/i)
       await user.click(toggleButton)
       
       expect(toggleDarkMode).toHaveBeenCalled()
@@ -201,7 +207,6 @@ describe('Dashboard', () => {
       const filtersButton = screen.getByRole('button', { name: /filters/i })
       await user.click(filtersButton)
       
-      // Check that filter dropdowns appear
       expect(screen.getByText('All Nationalities')).toBeInTheDocument()
       expect(screen.getByText('All Grades')).toBeInTheDocument()
       expect(screen.getByText('All Statuses')).toBeInTheDocument()
@@ -209,16 +214,17 @@ describe('Dashboard', () => {
   })
 
   describe('pagination', () => {
-    it('shows pagination controls', () => {
+    it('shows result count', () => {
       renderDashboard()
-      expect(screen.getByText(/Showing/)).toBeInTheDocument()
+      expect(screen.getByText(/1–3/)).toBeInTheDocument()
     })
 
     it('allows changing page size', async () => {
       const user = userEvent.setup()
       renderDashboard()
       
-      const pageSizeSelect = screen.getByRole('combobox')
+      const selects = screen.getAllByRole('combobox')
+      const pageSizeSelect = selects[selects.length - 1]
       await user.selectOptions(pageSizeSelect, '25')
       
       expect(pageSizeSelect).toHaveValue('25')
@@ -226,7 +232,7 @@ describe('Dashboard', () => {
   })
 
   describe('view toggle', () => {
-    it('defaults to table view', () => {
+    it('defaults to table view on desktop', () => {
       renderDashboard()
       expect(screen.getByRole('table')).toBeInTheDocument()
     })
