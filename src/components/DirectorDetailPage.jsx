@@ -56,6 +56,16 @@ const GoogleIcon = (props) => (
 )
 
 const DEFAULT_ENRICHMENT_DATE = '04-03-2026'
+
+function sanitizeUrl(url) {
+  if (!url) return null
+  const trimmed = String(url).trim()
+  if (/^javascript:/i.test(trimmed) || /^data:/i.test(trimmed) || /^vbscript:/i.test(trimmed)) {
+    return null
+  }
+  return trimmed
+}
+
 function formatEnrichmentDate(date) {
   if (!date || !String(date).trim()) return DEFAULT_ENRICHMENT_DATE
   const s = String(date).trim()
@@ -100,13 +110,14 @@ const Accordion = memo(function Accordion({ title, icon: Icon, badge, defaultOpe
 
 const InfoRow = memo(function InfoRow({ label, value, icon: Icon, link }) {
   if (!value) return null
+  const safeLink = link ? sanitizeUrl(link) : null
   return (
     <div className="flex items-start gap-3 py-3 border-b border-border-subtle last:border-0">
       {Icon && <Icon className="w-4 h-4 text-muted mt-0.5 flex-shrink-0" />}
       <div className="min-w-0 flex-1">
         <div className="text-caption text-muted uppercase tracking-wider mb-0.5">{label}</div>
-        {link ? (
-          <a href={link} target="_blank" rel="noopener noreferrer" className="text-body text-accent hover:underline inline-flex items-center gap-1">
+        {safeLink ? (
+          <a href={safeLink} target="_blank" rel="noopener noreferrer" className="text-body text-accent hover:underline inline-flex items-center gap-1">
             {value} <ExternalLink className="w-3 h-3" />
           </a>
         ) : (

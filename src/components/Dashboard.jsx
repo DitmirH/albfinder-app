@@ -22,6 +22,15 @@ function useDebounce(value, delay = 350) {
 const PAGE_SIZE_OPTIONS = [10, 25, 50]
 const DEFAULT_ENRICHMENT_DATE = '04-03-2026'
 
+function sanitizeUrl(url) {
+  if (!url) return null
+  const trimmed = String(url).trim()
+  if (/^javascript:/i.test(trimmed) || /^data:/i.test(trimmed) || /^vbscript:/i.test(trimmed)) {
+    return null
+  }
+  return trimmed
+}
+
 function formatEnrichmentDate(date) {
   if (!date || !String(date).trim()) return DEFAULT_ENRICHMENT_DATE
   const s = String(date).trim()
@@ -135,9 +144,9 @@ const TableRow = memo(function TableRow({ record, onClick, formatDate }) {
       </td>
       <td className="px-4 py-3.5 text-center">
         <div className="flex items-center justify-center gap-1">
-          {record.company_link && (
+          {sanitizeUrl(record.company_link) && (
             <a
-              href={record.company_link}
+              href={sanitizeUrl(record.company_link)}
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
@@ -147,9 +156,9 @@ const TableRow = memo(function TableRow({ record, onClick, formatDate }) {
               <Building2 className="w-4 h-4" />
             </a>
           )}
-          {record.officer_link && (
+          {sanitizeUrl(record.officer_link) && (
             <a
-              href={record.officer_link}
+              href={sanitizeUrl(record.officer_link)}
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
